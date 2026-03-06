@@ -1,10 +1,10 @@
 {
   "posts": [
     {
-      "id": "1772788861281",
+      "id": "1772789116460",
       "author": "Guest User",
-      "content": "hii",
-      "timestamp": "2026-03-06T09:21:01.281Z",
+      "content": "Test Post",
+      "timestamp": "2026-03-06T09:25:16.460Z",
       "image": null,
       "likes": 0
     },
@@ -26,6 +26,6 @@
     }
   ],
   "config": {
-    "updatedAt": "2026-03-06T09:21:01.281Z"
+    "updatedAt": "2026-03-06T09:25:16.461Z"
   }
 }
