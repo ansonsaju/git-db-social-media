@@ -25,57 +25,75 @@ const App = () => {
     const [newMessage, setNewMessage] = useState('');
     const [isPosting, setIsPosting] = useState(false);
 
+    // Initial load and periodic refresh
     useEffect(() => {
-        // Load latest data from GitHub RAW to ensure it's always live
-        const dbUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/db.json?t=${Date.now()}`;
-
-        fetch(dbUrl)
-            .then(res => res.json())
-            .then(data => {
-                setPosts(data.posts || []);
-                setMessages(data.messages || []);
-            })
-            .catch(err => {
-                console.error("Failed to load live DB, falling back to local", err);
-                fetch('./db.json')
-                    .then(res => res.json())
-                    .then(data => {
-                        setPosts(data.posts || []);
-                        setMessages(data.messages || []);
-                    });
-            });
+        refreshData();
+        const interval = setInterval(refreshData, 30000); // Check for new posts every 30s
+        return () => clearInterval(interval);
     }, []);
+
+    const refreshData = async () => {
+        try {
+            // Fetch from RAW with cache-buster
+            const dbUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/db.json?t=${Date.now()}`;
+            const res = await fetch(dbUrl);
+            const data = await res.json();
+            setPosts(data.posts || []);
+            setMessages(data.messages || []);
+        } catch (err) {
+            console.error("Fetch failed", err);
+        }
+    };
+
+    // Helper to fetch absolute latest data directly from the API (bypasses all cache)
+    const fetchLatestFromAPI = async () => {
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/db.json`;
+        const res = await fetch(url, {
+            headers: githubToken ? { 'Authorization': `token ${githubToken}` } : {}
+        });
+        const data = await res.json();
+        // Decode base64 content from GitHub API
+        const content = JSON.parse(atob(data.content));
+        return content;
+    };
 
     const handlePost = async () => {
         if (!newPost.trim()) return;
         setIsPosting(true);
 
-        const post = {
-            id: Date.now().toString(),
-            author: "Guest User",
-            content: newPost,
-            timestamp: new Date().toISOString(),
-            image: null,
-            likes: 0
-        };
-
-        const updatedPosts = [post, ...posts];
-
         try {
+            // 1. Fetch the absolute latest database state before touching anything
+            const latestDB = await fetchLatestFromAPI();
+
+            const post = {
+                id: Date.now().toString(),
+                author: "Guest User",
+                content: newPost,
+                timestamp: new Date().toISOString(),
+                image: null,
+                likes: 0
+            };
+
+            // 2. Merge into the latest data, not the (potentially stale) local state
+            const updatedPosts = [post, ...(latestDB.posts || [])];
+            const finalDB = { ...latestDB, posts: updatedPosts, config: { updatedAt: new Date().toISOString() } };
+
             if (githubToken) {
                 await gitPush(
                     githubToken,
-                    { posts: updatedPosts, messages, config: { updatedAt: new Date().toISOString() } },
+                    finalDB,
                     'db.json',
                     REPO_OWNER,
                     REPO_NAME
                 );
             }
+
+            // 3. Update local UI immediately for responsiveness
             setPosts(updatedPosts);
             setNewPost('');
         } catch (err) {
-            console.error("Failed to push to Git", err);
-            alert("Push failed. Make sure your token is still valid.");
+            console.error("Post failed", err);
+            alert("Interaction failed. Please try again in a few seconds.");
         } finally {
             setIsPosting(false);
         }
@@ -83,19 +101,26 @@ const App = () => {
 
     const handleSendMessage = async () => {
         if (!newMessage.trim()) return;
-        const msg = {
-            id: 'm' + Date.now(),
-            sender: "Guest",
-            text: newMessage,
-            timestamp: new Date().toISOString()
-        };
-        const updatedMessages = [...messages, msg];
 
         try {
+            // 1. Fetch latest state
+            const latestDB = await fetchLatestFromAPI();
+
+            const msg = {
+                id: 'm' + Date.now(),
+                sender: "Guest",
+                text: newMessage,
+                timestamp: new Date().toISOString()
+            };
+
+            // 2. Merge
+            const updatedMessages = [...(latestDB.messages || []), msg];
+            const finalDB = { ...latestDB, messages: updatedMessages, config: { updatedAt: new Date().toISOString() } };
+
             if (githubToken) {
                 await gitPush(
                     githubToken,
-                    { posts, messages: updatedMessages, config: { updatedAt: new Date().toISOString() } },
+                    finalDB,
                     'db.json',
                     REPO_OWNER,
                     REPO_NAME
@@ -104,7 +129,7 @@ const App = () => {
             setMessages(updatedMessages);
             setNewMessage('');
         } catch (err) {
-            console.error("Chat push failed", err);
+            console.error("Chat failed", err);
         }
     };
 
@@ -210,8 +235,8 @@ const App = () => {
                 ) : (
                     <div className="h-[70vh] glass-card flex flex-col p-6 animate-fade-in">
                         <div className="flex-1 overflow-y-auto space-y-4 pr-4">
-                            {messages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.sender === 'System' ? 'justify-center' : 'justify-start'}`}>
+                            {messages.map((msg, idx) => (
+                                <div key={msg.id || idx} className={`flex ${msg.sender === 'System' ? 'justify-center' : 'justify-start'}`}>
                                     <div className={`max-w-[80%] p-3 rounded-2xl ${msg.sender === 'System' ? 'bg-slate-800/50 text-xs text-slate-500' : 'bg-indigo-500/20 border border-indigo-500/30'}`}>
                                         {msg.sender !== 'System' && <p className="text-[10px] text-indigo-400 font-bold mb-1 uppercase tracking-wider">{msg.sender}</p>}
                                         <p className="text-sm">{msg.text}</p>
@@ -234,7 +259,7 @@ const App = () => {
                 )}
             </main>
 
-            {/* Settings Panel */}
+            {/* Settings Profile */}
             <AnimatePresence>
                 {showSettings && (
                     <motion.div
@@ -246,7 +271,7 @@ const App = () => {
                         <h2 className="text-2xl font-bold mb-8">Node <span className="text-indigo-500">Config</span></h2>
                         <div className="space-y-6">
                             <div>
-                                <label className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2 block">GitHub Personal Token</label>
+                                <label className="text-xs uppercase tracking-widest text-slate-500 font-bold mb-2 block">Personal Token Override</label>
                                 <input
                                     type="password"
                                     value={githubToken}
@@ -259,7 +284,7 @@ const App = () => {
                                 />
                             </div>
                             <p className="text-xs text-slate-500 leading-relaxed italic">
-                                * Your token is stored locally in your browser. It is used to commit data as "Git-as-DB".
+                                * A professional master token is active. Changes are pushed globally to the Git-DB.
                             </p>
                             <button
                                 onClick={() => setShowSettings(false)}
