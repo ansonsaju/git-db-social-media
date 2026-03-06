@@ -1,0 +1,24 @@
+{
+  "posts": [
+    {
+      "id": "1",
+      "author": "Sentinel Omni",
+      "content": "Welcome to Nexus Social! A showcase of what's possible with Git-as-Database.",
+      "timestamp": "2026-03-06T13:16:00.000Z",
+      "image": null,
+      "likes": 0
+    }
+  ],
+  "messages": [
+    {
+      "id": "m1",
+      "sender": "System",
+      "text": "Connection established to LinkedIn Showcase.",
+      "timestamp": "2026-03-06T13:16:00.000Z"
+    }
+  ],
+  "config": {
+    "version": "1.0.0",
+    "updatedAt": "2026-03-06T13:16:00.000Z"
+  }
+}
