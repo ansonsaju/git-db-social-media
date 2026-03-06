@@ -1,14 +1,6 @@
 {
   "posts": [
     {
-      "id": "1772789215768",
-      "author": "Guest User",
-      "content": "Second Test Post 123",
-      "timestamp": "2026-03-06T09:26:55.768Z",
-      "image": null,
-      "likes": 0
-    },
-    {
       "id": "1772789116460",
       "author": "Guest User",
       "content": "Test Post",
@@ -31,9 +23,15 @@
       "sender": "System",
       "text": "Connection established to LinkedIn Showcase.",
       "timestamp": "2026-03-06T13:16:00.000Z"
+    },
+    {
+      "id": "m1772789283005",
+      "sender": "Guest",
+      "text": "Hello from test agent",
+      "timestamp": "2026-03-06T09:28:03.005Z"
     }
   ],
   "config": {
-    "updatedAt": "2026-03-06T09:26:55.768Z"
+    "updatedAt": "2026-03-06T09:28:03.005Z"
   }
 }
